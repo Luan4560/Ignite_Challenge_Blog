@@ -1,13 +1,23 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-import style from './header.module.scss';
+import Head from 'next/head';
+import Link from 'next/link';
 
-export default function Header() {
+import styles from './header.module.scss';
+
+interface HeaderProps {
+  title: string;
+}
+
+export default function Header({ title }: HeaderProps): JSX.Element {
   return (
-    <header>
-      <div className={style.container}>
-        <img src="/images/logo.svg" alt="spacetraveling" />
-      </div>
-    </header>
+    <>
+      <Head>
+        <title>{title}</title>
+      </Head>
+      <header className={styles.container}>
+        <Link href="/">
+          <img src="/logo.svg" alt="logo" />
+        </Link>
+      </header>
+    </>
   );
 }
