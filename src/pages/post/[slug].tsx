@@ -1,13 +1,12 @@
-import Head from 'next/head';
+/* eslint-disable react/no-array-index-key */
 import { GetStaticPaths, GetStaticProps } from 'next';
-import { FiCalendar, FiUser, FiClock } from 'react-icons/fi';
-import Prismic from '@prismicio/client';
-import { format } from 'date-fns';
-import ptBR from 'date-fns/locale/pt-BR';
 import { useRouter } from 'next/router';
 import { RichText } from 'prismic-dom';
+import { FiCalendar, FiUser, FiClock } from 'react-icons/fi';
+
 import Header from '../../components/Header';
 import { getPrismicClient } from '../../services/prismic';
+import { formatDate } from '../../utils/formatDate';
 import styles from './post.module.scss';
 
 interface Post {
@@ -33,109 +32,76 @@ interface PostProps {
 
 export default function Post({ post }: PostProps): JSX.Element {
   const router = useRouter();
-  if (router.isFallback) {
-    return <div>Carregando...</div>;
-  }
-  const count = post.data?.content.reduce((acc, item) => {
-    const section = RichText.asText(item.body).split(' ').length;
-    return acc + section;
+
+  const words = post.data.content.reduce((sum, { heading, body }) => {
+    let wordsPerContent = 0;
+    wordsPerContent += heading.match(/\w+/g).length;
+    wordsPerContent += RichText.asText(body).match(/\w+/g).length;
+    return sum + wordsPerContent;
   }, 0);
-  const readingTime = Math.ceil(count / 200);
+  const readingTime = `${Math.ceil(words / 200)} min`;
+
   return (
     <>
-      <Header />
-      <Head>
-        <title>{post.data.title} | spacetraveling</title>
-      </Head>
-      <main className={styles.container}>
-        <div className={styles.content}>
-          {post.data.banner?.url && (
-            <div
-              className={styles.banner}
-              style={{ backgroundImage: `url(${post.data.banner?.url})` }}
-            />
-          )}
-          <header>
-            <h1>{post?.data.title}</h1>
-            <div className={styles.info}>
-              <div>
-                <FiCalendar />
-                <span>
-                  {format(
-                    new Date(post.first_publication_date),
-                    'dd MMM yyyy',
-                    {
-                      locale: ptBR,
-                    }
-                  )}
-                </span>
-              </div>
-              <div>
-                <FiUser />
-                <span>{post.data.author}</span>
-              </div>
-              <div>
-                <FiClock />
-                <span>{`${readingTime} min`}</span>
-              </div>
+      <Header title={`Spacetraveling | ${post.data.title}`} />
+
+      {router.isFallback ? (
+        <div className={styles.loading}>Carregando...</div>
+      ) : (
+        <>
+          <main className={styles.container}>
+            <img src={post.data.banner.url} alt="banner" />
+            <div className={styles.content}>
+              <header>
+                <strong>{post.data.title}</strong>
+                <div>
+                  <span>
+                    <FiCalendar />
+                    {formatDate(post.first_publication_date, 'dd MMM yyyy')}
+                  </span>
+                  <span>
+                    <FiUser />
+                    {post.data.author}
+                  </span>
+                  <span>
+                    <FiClock />
+                    {readingTime}
+                  </span>
+                </div>
+              </header>
+
+              {post.data.content.map(content => (
+                <section key={content.heading}>
+                  <strong>{content.heading}</strong>
+                  {content.body.map((item, i) => (
+                    <p key={i}>{item.text}</p>
+                  ))}
+                </section>
+              ))}
             </div>
-          </header>
-          <article>
-            {post?.data.content.map(content => (
-              <div key={Math.random().toString()} className={styles.postBody}>
-                <h2>{content.heading}</h2>
-                {content.body.map(item => (
-                  <p key={Math.random().toString()}>{item.text}</p>
-                ))}
-              </div>
-            ))}
-          </article>
-        </div>
-      </main>
+          </main>
+        </>
+      )}
     </>
   );
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const prismic = getPrismicClient();
-  const posts = await prismic.query(
-    [Prismic.Predicates.at('document.type', 'pos')],
-    {
-      fetch: ['post.title', 'post.subtitle', 'post.author'],
-      pageSize: 3,
-    }
-  );
-  const paths = posts.results.map(post => {
-    return {
-      params: {
-        slug: post.uid,
-      },
-    };
-  });
+  const posts = await prismic.query('', { pageSize: 10 });
+
   return {
-    paths,
+    paths: posts.results.map(post => ({
+      params: { slug: post.uid },
+    })),
     fallback: true,
   };
 };
 
-export const getStaticProps: GetStaticProps = async ({ params }) => {
+export const getStaticProps: GetStaticProps = async context => {
   const prismic = getPrismicClient();
-  const response = await prismic.getByUID('pos', String(params.slug), {
-    fetch: ['post.title', 'post.banner', 'post.author', 'post.content'],
-  });
-  const post = {
-    uid: response.uid,
-    first_publication_date: response.first_publication_date,
-    data: {
-      title: response.data.title,
-      subtitle: response.data.subtitle,
-      author: response.data.author,
-      banner: {
-        url: response.data.banner.url ?? '',
-      },
-      content: response.data.content,
-    },
-  };
+  const post = await prismic.getByUID('posts', String(context.params.slug), {});
+
   return {
     props: {
       post,
