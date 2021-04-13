@@ -1,17 +1,16 @@
 import { format, parseISO } from 'date-fns';
 import ptBR from 'date-fns/locale/pt-BR';
 
-export function formatDate(
-  date: number | string | Date,
-  pattern: string
-): string {
-  let convertedDate: number | Date;
+export function formatDate(date: number | string | Date | null, pattern: string): string {
+    if (!date) return '';
 
-  if (typeof date === 'string') {
-    convertedDate = parseISO(date);
-  } else {
-    convertedDate = date;
-  }
+    let convertedDate: number | Date;
 
-  return format(convertedDate, pattern, { locale: ptBR });
+    if (typeof date === 'string') {
+        convertedDate = parseISO(date);
+    } else {
+        convertedDate = date;
+    }
+
+    return format(convertedDate, pattern, { locale: ptBR });
 }
